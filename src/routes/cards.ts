@@ -5,13 +5,15 @@ import { ScryfallService } from '../services/scryfall';
 import { CSVImportService } from '../services/csvImport';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
 export function createCardRoutes(db: Database): Router {
   const router = Router();
 
-  // Configure multer for file uploads
+  // Configure multer for file uploads (use memory storage to avoid filesystem issues)
   const upload = multer({
-    dest: 'uploads/',
+    storage: multer.memoryStorage(),
     fileFilter: (req, file, cb) => {
       if (file.mimetype === 'text/csv' || path.extname(file.originalname) === '.csv') {
         cb(null, true);
@@ -314,12 +316,24 @@ export function createCardRoutes(db: Database): Router {
         return;
       }
 
+      // Create temporary file from memory buffer
+      const tempFilePath = path.join(os.tmpdir(), `csv_import_${userId}_${Date.now()}.csv`);
+      fs.writeFileSync(tempFilePath, req.file!.buffer);
+
       // Start background import
       setTimeout(async () => {
         try {
-          await CSVImportService.importCSV(req.file!.path, userId, db);
+          await CSVImportService.importCSV(tempFilePath, userId, db);
+          // Clean up temp file
+          fs.unlinkSync(tempFilePath);
         } catch (error) {
           console.error('CSV import error:', error);
+          // Clean up temp file on error too
+          try {
+            fs.unlinkSync(tempFilePath);
+          } catch (unlinkError) {
+            console.error('Error cleaning up temp file:', unlinkError);
+          }
         }
       }, 100);
 

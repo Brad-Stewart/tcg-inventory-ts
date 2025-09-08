@@ -140,3 +140,4 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+test_cards.csv
