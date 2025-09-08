@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { Database } from '../database/database';
 import { AuthService } from '../services/auth';
+import { JWTAuthService } from '../services/jwtAuth';
 
 export function createAuthRoutes(db: Database): Router {
   const router = Router();
@@ -16,27 +17,27 @@ export function createAuthRoutes(db: Database): Router {
       const { email, password } = req.body;
 
       if (!email || !password) {
-        req.flash('error', 'Email and password are required');
-        res.redirect('/login');
+        res.render('login', { error: 'Email and password are required' });
         return;
       }
 
       const user = await AuthService.authenticateUser(db, email, password);
 
       if (user && user.id) {
-        req.session.user_id = user.id;
-        req.session.user_email = user.email;
+        // Set JWT token as cookie
+        JWTAuthService.setAuthCookie(res, {
+          userId: user.id,
+          email: user.email
+        });
         res.redirect('/');
         return;
       } else {
-        req.flash('error', 'Invalid email or password');
-        res.redirect('/login');
+        res.render('login', { error: 'Invalid email or password' });
         return;
       }
     } catch (error) {
       console.error('Login error:', error);
-      req.flash('error', 'An error occurred during login');
-      res.redirect('/login');
+      res.render('login', { error: 'An error occurred during login' });
     }
   });
 
@@ -51,40 +52,32 @@ export function createAuthRoutes(db: Database): Router {
       const { email, password, confirm_password } = req.body;
 
       if (!email || !password || !confirm_password) {
-        req.flash('error', 'All fields are required');
-        res.redirect('/register');
+        res.render('register', { error: 'All fields are required' });
         return;
       }
 
       if (password !== confirm_password) {
-        req.flash('error', 'Passwords do not match');
-        res.redirect('/register');
+        res.render('register', { error: 'Passwords do not match' });
         return;
       }
 
       await AuthService.registerUser(db, email, password);
-      req.flash('success', 'Registration successful! Please log in.');
-      res.redirect('/login');
+      res.render('login', { success: 'Registration successful! Please log in.' });
 
     } catch (error: any) {
       console.error('Registration error:', error);
       if (error.message === 'Email already exists') {
-        req.flash('error', 'Email already exists');
+        res.render('register', { error: 'Email already exists' });
       } else {
-        req.flash('error', 'An error occurred during registration');
+        res.render('register', { error: 'An error occurred during registration' });
       }
-      res.redirect('/register');
     }
   });
 
   // Logout
   router.get('/logout', (req: Request, res: Response) => {
-    req.session.destroy((err) => {
-      if (err) {
-        console.error('Logout error:', err);
-      }
-      res.redirect('/login');
-    });
+    JWTAuthService.clearAuthCookie(res);
+    res.redirect('/login');
   });
 
   return router;

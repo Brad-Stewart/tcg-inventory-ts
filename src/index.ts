@@ -1,5 +1,5 @@
 import express from 'express';
-import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import bodyParser from 'body-parser';
 import path from 'path';
 import { Database } from './database/database';
@@ -23,50 +23,7 @@ app.set('views', path.join(__dirname, '../views'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
-
-// Session configuration
-app.use(session({
-  secret: process.env.SECRET_KEY || 'your-secret-key-here',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true
-  },
-  name: 'tcg-session'
-}));
-
-// Flash messages middleware
-app.use((req, res, next) => {
-  // Move flash messages to locals for templates
-  res.locals.flash = req.session?.flash || {};
-  
-  // Clear flash messages from session after moving to locals
-  if (req.session) {
-    req.session.flash = {};
-  }
-  
-  // Add flash function to request
-  req.flash = (type: string, message: string) => {
-    if (!req.session) return;
-    if (!req.session.flash) {
-      req.session.flash = {};
-    }
-    if (!req.session.flash[type]) {
-      req.session.flash[type] = [];
-    }
-    req.session.flash[type].push(message);
-  };
-  
-  next();
-});
-
-// Make session available in templates
-app.use((req, res, next) => {
-  res.locals.session = req.session;
-  next();
-});
+app.use(cookieParser());
 
 // Routes
 app.use('/', createAuthRoutes(db));
