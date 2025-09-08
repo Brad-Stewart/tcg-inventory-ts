@@ -31,8 +31,10 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    httpOnly: true
+  },
+  name: 'tcg-session'
 }));
 
 // Flash messages middleware
@@ -103,3 +105,6 @@ process.on('SIGINT', () => {
   db.close();
   process.exit(0);
 });
+
+// Export app for serverless deployment
+export default app;

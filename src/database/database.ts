@@ -1,15 +1,26 @@
 import sqlite3 from 'sqlite3';
 import { Card, User } from '../types';
 import path from 'path';
+import os from 'os';
 
 export class Database {
   private db: sqlite3.Database;
 
   constructor(dbPath?: string) {
-    const defaultPath = path.join(process.cwd(), 'inventory.db');
+    // Try current directory first, fallback to temp directory for serverless environments
+    let defaultPath: string;
+    try {
+      defaultPath = path.join(process.cwd(), 'inventory.db');
+      // Test if we can write to current directory
+      require('fs').accessSync(process.cwd(), require('fs').constants.W_OK);
+    } catch (error) {
+      // Fallback to temp directory if current directory is read-only
+      defaultPath = path.join(os.tmpdir(), 'inventory.db');
+      console.log('Using temp directory for database:', defaultPath);
+    }
+    
     this.db = new sqlite3.Database(dbPath || process.env.DATABASE_PATH || defaultPath);
     this.db.run('PRAGMA foreign_keys = ON');
-    
     
     this.initDatabase();
   }
